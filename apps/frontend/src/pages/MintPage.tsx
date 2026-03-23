@@ -1,14 +1,18 @@
 import { useState } from 'react'
 import { Sparkles, Image as ImageIcon } from 'lucide-react'
+import { ErrorHandler, AppError } from '@/utils/errorHandler'
+import { ErrorDisplay } from '@/components/ErrorDisplay'
 
 export function MintPage() {
   const [prompt, setPrompt] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedImage, setGeneratedImage] = useState<string | null>(null)
+  const [error, setError] = useState<AppError | null>(null)
 
   const handleGenerate = async () => {
     if (!prompt.trim()) return
     
+    setError(null)
     setIsGenerating(true)
     try {
       // AI image generation logic will be implemented
@@ -18,7 +22,8 @@ export function MintPage() {
         setIsGenerating(false)
       }, 3000)
     } catch (error) {
-      console.error('Failed to generate image:', error)
+      const appError = ErrorHandler.handle(error)
+      setError(appError)
       setIsGenerating(false)
     }
   }
@@ -26,17 +31,27 @@ export function MintPage() {
   const handleMint = async () => {
     if (!generatedImage) return
     
+    setError(null)
     try {
       // NFT minting logic will be implemented
       console.log('Minting NFT...')
     } catch (error) {
-      console.error('Failed to mint NFT:', error)
+      const appError = ErrorHandler.handle(error)
+      setError(appError)
     }
   }
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <h1 className="text-3xl font-bold text-secondary-900 mb-8">Create AI Art</h1>
+      
+      {error && (
+        <ErrorDisplay
+          error={error}
+          onDismiss={() => setError(null)}
+          showRetry={error.isRecoverable}
+        />
+      )}
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="space-y-6">

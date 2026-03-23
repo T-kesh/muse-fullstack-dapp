@@ -1,16 +1,24 @@
 import { useState } from 'react'
 import { Wallet, LogOut, Settings } from 'lucide-react'
 import { useStellar } from '@/hooks/useStellar'
+import { ErrorDisplay } from '@/components/ErrorDisplay'
+import { useErrorContext } from '@/contexts/ErrorContext'
+import { AppError } from '@/utils/errorHandler'
 
 export function WalletConnect() {
   const { account, isLoading, connectWallet, disconnectWallet, network, setNetwork } = useStellar()
+  const { showError } = useErrorContext()
   const [showNetworkSwitch, setShowNetworkSwitch] = useState(false)
+  const [error, setError] = useState<AppError | null>(null)
 
   const handleConnect = async () => {
+    setError(null)
     try {
       await connectWallet()
     } catch (error) {
-      console.error('Failed to connect wallet:', error)
+      const appError = error as AppError
+      setError(appError)
+      showError(appError)
     }
   }
 
@@ -30,9 +38,19 @@ export function WalletConnect() {
     return `${num.toFixed(2)} XLM`
   }
 
-  if (account.isConnected) {
-    return (
-      <div className="flex items-center space-x-3">
+  return (
+    <div className="flex flex-col space-y-2">
+      {error && (
+        <ErrorDisplay
+          error={error}
+          onRetry={handleConnect}
+          onDismiss={() => setError(null)}
+          showRetry={error.isRecoverable}
+        />
+      )}
+      
+      {account.isConnected ? (
+        <div className="flex items-center space-x-3">
         <div className="relative">
           <button
             onClick={() => setShowNetworkSwitch(!showNetworkSwitch)}
@@ -88,26 +106,24 @@ export function WalletConnect() {
           <LogOut className="h-4 w-4" />
         </button>
       </div>
-    )
-  }
-
-  return (
-    <button
-      onClick={handleConnect}
-      disabled={isLoading}
-      className="btn-primary flex items-center space-x-2 px-4 py-2"
-    >
-      {isLoading ? (
-        <>
-          <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-          <span>Connecting...</span>
-        </>
-      ) : (
-        <>
-          <Wallet className="h-4 w-4" />
-          <span>Connect Freighter</span>
-        </>
-      )}
-    </button>
-  )
+    ) : (
+      <button
+        onClick={handleConnect}
+        disabled={isLoading}
+        className="btn-primary flex items-center space-x-2 px-4 py-2"
+      >
+        {isLoading ? (
+          <>
+            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+            <span>Connecting...</span>
+          </>
+        ) : (
+          <>
+            <Wallet className="h-4 w-4" />
+            <span>Connect Freighter</span>
+          </>
+        )}
+      </button>
+    )}
+  </div>
 }

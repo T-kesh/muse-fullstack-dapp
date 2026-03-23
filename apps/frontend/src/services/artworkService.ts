@@ -1,4 +1,5 @@
 import { useInfiniteQuery, UseInfiniteQueryOptions } from '@tanstack/react-query'
+import { ErrorHandler } from '@/utils/errorHandler'
 
 export interface Artwork {
   id: string
@@ -48,10 +49,18 @@ async function fetchArtworks({
   const response = await fetch(`${API_BASE_URL}/api/artworks?${params}`)
   
   if (!response.ok) {
-    throw new Error('Failed to fetch artworks')
+    const errorData = await response.json().catch(() => ({}))
+    const errorMessage = errorData?.error?.message || `Failed to fetch artworks (Status: ${response.status})`
+    throw new Error(errorMessage)
   }
   
-  return response.json()
+  const data = await response.json()
+  
+  if (!data.success) {
+    throw new Error(data?.error?.message || 'Failed to fetch artworks')
+  }
+  
+  return data
 }
 
 export function useArtworks(
@@ -66,6 +75,15 @@ export function useArtworks(
       const hasMore = allPages.flat().length < pagination.total
       return hasMore ? pagination.page + 1 : undefined
     },
+    retry: (failureCount: number, error: Error) => {
+      const appError = ErrorHandler.handle(error)
+      return ErrorHandler.isRecoverable(appError) && failureCount < 3
+    },
+    retryDelay: (attemptIndex: number) => ErrorHandler.getRetryDelay(attemptIndex),
+    onError: (error: Error) => {
+      const appError = ErrorHandler.handle(error)
+      console.error('Failed to fetch artworks:', appError.userMessage)
+    },
     ...options,
   })
 }
@@ -74,9 +92,16 @@ export async function getArtworkById(id: string): Promise<Artwork> {
   const response = await fetch(`${API_BASE_URL}/api/artworks/${id}`)
   
   if (!response.ok) {
-    throw new Error('Failed to fetch artwork')
+    const errorData = await response.json().catch(() => ({}))
+    const errorMessage = errorData?.error?.message || `Failed to fetch artwork (Status: ${response.status})`
+    throw new Error(errorMessage)
   }
   
   const result = await response.json()
+  
+  if (!result.success) {
+    throw new Error(result?.error?.message || 'Failed to fetch artwork')
+  }
+  
   return result.data
 }

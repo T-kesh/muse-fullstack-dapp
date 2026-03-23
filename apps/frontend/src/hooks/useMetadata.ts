@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { ErrorHandler } from '@/utils/errorHandler'
 
 interface MetadataResponse {
   success: boolean
@@ -20,11 +21,30 @@ export const useArtworkMetadata = (artworkId: string) => {
     queryKey: ['metadata', artworkId],
     queryFn: async () => {
       const response = await fetch(`/api/metadata/artwork/${artworkId}`)
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch artwork metadata')
+        const errorData = await response.json().catch(() => ({}))
+        const errorMessage = errorData?.error?.message || `Failed to fetch artwork metadata (Status: ${response.status})`
+        throw new Error(errorMessage)
       }
-      return response.json()
+      
+      const result = await response.json()
+      
+      if (!result.success) {
+        throw new Error(result?.error?.message || 'Failed to fetch artwork metadata')
+      }
+      
+      return result
     },
     enabled: !!artworkId,
+    retry: (failureCount: number, error: Error) => {
+      const appError = ErrorHandler.handle(error)
+      return ErrorHandler.isRecoverable(appError) && failureCount < 3
+    },
+    retryDelay: (attemptIndex: number) => ErrorHandler.getRetryDelay(attemptIndex),
+    onError: (error: Error) => {
+      const appError = ErrorHandler.handle(error)
+      console.error('Failed to fetch metadata:', appError.userMessage)
+    },
   })
 }
